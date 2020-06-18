@@ -1,24 +1,22 @@
 #include "compression.hpp"
 
+#include <algorithm>
 #include <iostream>
-
-constexpr uint8_t ASCIIspace = 32;
 
 std::vector<std::pair<uint8_t, uint8_t>> compressGrayscale(const std::array<std::array<uint8_t, width>, height>& dataToCompress) {
     std::vector<std::pair<uint8_t, uint8_t>> vecCompressed;
-    for (const auto& arrayInVec : dataToCompress) {
-        uint8_t counter = 0;
-        for (auto it = arrayInVec.begin(); it != arrayInVec.end(); ++it) {
-            if (*it == *std::next(it) && (std::next(it) != arrayInVec.end())) {
-                counter++;
+    vecCompressed.reserve(height * width);
+    for (const auto& arr : dataToCompress) {
+        for (auto itArr = arr.begin(); itArr != arr.end();) {
+            auto it = std::adjacent_find(itArr, arr.end(), std::not_equal_to<int>{});
+            if (it != arr.end()) {
+                it++;
             }
-            if (*it != *std::next(it) || (std::next(it) == arrayInVec.end())) {
-                counter++;
-                vecCompressed.push_back({*it, counter});
-                counter = 0;
-            }
+            vecCompressed.emplace_back(*itArr, std::distance(itArr, it));
+            itArr = it;
         }
     }
+    vecCompressed.shrink_to_fit();
 
     return vecCompressed;
 }
@@ -26,13 +24,9 @@ std::vector<std::pair<uint8_t, uint8_t>> compressGrayscale(const std::array<std:
 std::array<std::array<uint8_t, width>, height> decompressGrayscale(const std::vector<std::pair<uint8_t, uint8_t>>& dataTodecompress) {
     std::array<std::array<uint8_t, width>, height> arrayDecompressed;
     auto it = arrayDecompressed.front().begin();
-    for (auto& el : dataTodecompress) {
-        for (size_t i = 0; i < el.second; ++i) {
-            *it = el.first;
-            *it++;
-        }
-    }
-
+    std::for_each(dataTodecompress.begin(), dataTodecompress.end(), [it](const auto& pair) mutable {
+        it = std::fill_n(it, pair.second, pair.first);
+    });
     return arrayDecompressed;
 }
 
