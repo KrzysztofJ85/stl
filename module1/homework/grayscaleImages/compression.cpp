@@ -1,29 +1,27 @@
 #include "compression.hpp"
 
+#include <algorithm>
 #include <iostream>
 
-constexpr uint8_t ASCIIspace = 32;
+constexpr uint8_t ASCIIspace = ' ';
 
 VectorPair compressGrayscale(const ArrayArray& data) {
     VectorPair result;
     result.reserve(width * height);
 
-    for (const auto& entry : data) {
+    std::for_each(data.begin(), data.end(), [&result](auto entry) {
         uint8_t currValue = entry.front();
-        uint8_t currCount = 1;
-
-        for (uint8_t id = 1; id < width; id++) {
-            if (entry[id] == currValue) {
-                currCount++;
-            }
-            else {
-                result.emplace_back(std::make_pair(currValue, currCount));
-                currValue = entry[id];
-                currCount = 1;
-            }
+        auto it_first = entry.begin();
+        while (it_first != entry.end()) {
+            auto it_last = std::find_if(it_first, entry.end(), [&currValue](const auto value) {
+                 return currValue != value;
+            });
+            result.push_back({currValue, std::count(it_first, it_last, currValue)});
+            it_first = it_last;
+            currValue = *it_last;
         }
-        result.emplace_back(std::make_pair(currValue, currCount));
-    }
+    });
+
     result.shrink_to_fit();
 
     return result;
@@ -32,21 +30,11 @@ VectorPair compressGrayscale(const ArrayArray& data) {
 ArrayArray decompressGrayscale(const VectorPair& data) {
     ArrayArray result;
 
-    size_t colCount = 0;
-    uint8_t rowId = 0;
-    auto it = result[rowId].begin();
+    auto it = result.front().begin();
 
-    for (const auto& entry : data) {
-        auto it_back = std::next(it, entry.second);
-        std::fill(it, it_back, entry.first);
-        colCount += entry.second;
-        if (colCount < width) {
-            it = it_back;
-        } else if (++rowId < height) {
-            colCount = 0;
-            it = result[rowId].begin();
-        }
-    }
+    std::for_each(data.begin(), data.end(), [it](const auto& entry) mutable {
+        it = std::fill_n(it, entry.second, entry.first);
+    });
 
     return result;
 }
